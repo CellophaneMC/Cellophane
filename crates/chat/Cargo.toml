@@ -1,0 +1,11 @@
+[package]
+name = "cellophanemc_chat"
+description = "Chat components of CellophaneMC"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true

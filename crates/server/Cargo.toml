@@ -1,0 +1,37 @@
+[package]
+name = "cellophanemc_server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+include.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cellophanemc_core.workspace = true
+cellophanemc_data.workspace = true
+cellophanemc_network.workspace = true
+cellophanemc_protocol.workspace = true
+cellophanemc_nbt.workspace = true
+cellophanemc_profile.workspace = true
+cellophanemc_world.workspace = true
+bevy_ecs.workspace = true
+bevy_app.workspace = true
+bevy_transform.workspace = true
+bevy_reflect.workspace = true
+glam.workspace = true
+serde = { workspace = true, optional = true, features = ["derive"] }
+bit-set.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+byteorder.workspace = true
+flate2.workspace = true
+tokio.workspace = true
+
+[features]
+default = ["serde"]

@@ -1,0 +1,33 @@
+[package]
+name = "cellophanemc_network"
+description = "Network components of CellophaneMC"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+encryption = ["dep:aes", "dep:cfb8"]
+compression = ["dep:libdeflater"]
+
+[dependencies]
+tokio = { workspace = true, features = ["full"] }
+cellophanemc_protocol.workspace = true
+cellophanemc_data.workspace = true
+cellophanemc_profile.workspace = true
+bevy_ecs.workspace = true
+bevy_app.workspace = true
+bevy_reflect.workspace = true
+uuid.workspace = true
+cfb8 = { workspace = true, optional = true }
+libdeflater = { workspace = true, optional = true }
+aes = { workspace = true, optional = true }
+bytes.workspace = true
+anyhow = "1"
+thiserror.workspace = true
+flume.workspace = true
+tracing.workspace = true

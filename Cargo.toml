@@ -1,0 +1,112 @@
+[workspace]
+
+members = [
+    "crates/*"
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+keywords = ["minecraft", "server", "api", "plugins"]
+categories = ["game-development"]
+homepage = "https://github.com/cellophanemc"
+repository = "https://github.com/cellophanemc/cellophane"
+include = ["/src", "/examples"]
+
+[workspace.dependencies]
+# Bevy game engine
+bevy = "0.12.1"
+bevy_ecs = "0.12.1"
+bevy_app = "0.12.1"
+bevy_asset = "0.12.1"
+bevy_reflect = "0.12.1"
+bevy_transform = "0.12.1"
+bevy_internal = "0.12.1"
+tokio = "1.35.1"
+byteorder = "1.5.0"
+serde = "1.0.194"
+serde_json = "1.0.110"
+libdeflater = "1.19.0"
+aes = "0.8.3"
+cfb8 = "0.8.1"
+rand = "0.8.5"
+rand_core = "0.6.4"
+uuid = "1.6"
+thiserror = "1"
+glam = "0.25.0"
+bytes = "1.5.0"
+bit-set = "0.5.3"
+cesu8 = "1.1.0"
+md5 = "0.7.0"
+flume = "0.11"
+tracing = "0.1.40"
+flate2 = "1.0.28"
+
+# Documentation
+document-features = "0.2.7"
+
+# Own crates
+cellophanemc_core = { path = "crates/core", version = "0.0.1" }
+cellophanemc_network = { path = "crates/network", version = "0.0.1" }
+cellophanemc_protocol = { path = "crates/protocol", version = "0.0.1" }
+cellophanemc_nbt = { path = "crates/nbt", version = "0.0.1" }
+cellophanemc_data = { path = "crates/data", version = "0.0.1" }
+cellophanemc_world = { path = "crates/world", version = "0.0.1" }
+cellophanemc_random = { path = "crates/random", version = "0.0.1" }
+cellophanemc_noise = { path = "crates/noise", version = "0.0.1" }
+cellophanemc_profile = { path = "crates/profile", version = "0.0.1" }
+cellophanemc_server = { path = "crates/server", version = "0.0.1" }
+cellophanemc_chat = { path = "crates/chat", version = "0.0.1" }
+cellophanemc_anvil = { path = "crates/anvil", version = "0.0.1" }
+
+# Bevy-specific profile setup aimed at better performace while developing
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[package]
+name = "cellophanemc"
+description = "Minecraft server development suite"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Rjacraft components
+cellophanemc_core = { workspace = true, optional = true }
+cellophanemc_network = { workspace = true }
+cellophanemc_protocol = { workspace = true }
+cellophanemc_nbt = { workspace = true }
+cellophanemc_data = { workspace = true }
+cellophanemc_world = { workspace = true }
+cellophanemc_random = { workspace = true }
+cellophanemc_server = { workspace = true }
+cellophanemc_profile = { workspace = true }
+cellophanemc_chat = { workspace = true }
+bevy.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+bevy-inspector-egui = { version = "0.22.1" }
+
+# Documentation
+document-features.workspace = true
+
+[features]
+
+#! ## Basic features
+
+## Enables the default features
+default = ["core"]
+
+## Enables `core` features
+core = ["dep:cellophanemc_core"]

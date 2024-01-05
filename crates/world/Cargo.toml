@@ -1,0 +1,23 @@
+[package]
+name = "cellophanemc_world"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+include.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cellophanemc_data.workspace = true
+cellophanemc_core.workspace = true
+serde = { workspace = true, optional = true, features = ["derive"] }
+env_logger = "0.10.0"
+log = "0.4.20"
+
+[features]
+default = ["serde"]

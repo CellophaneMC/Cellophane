@@ -1,0 +1,18 @@
+[package]
+name = "cellophanemc_profile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+include.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uuid.workspace = true
+bevy_reflect.workspace = true
+md5.workspace = true

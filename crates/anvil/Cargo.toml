@@ -1,0 +1,18 @@
+[package]
+name = "cellophanemc_anvil"
+description = "Anvil region format of CelophaneMC"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+flate2.workspace = true
+bit-set.workspace = true
+cellophanemc_nbt.workspace = true
+byteorder.workspace = true

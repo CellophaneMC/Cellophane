@@ -1,0 +1,25 @@
+[package]
+name = "cellophanemc_protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio.workspace = true
+byteorder.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+uuid.workspace = true
+bevy_reflect.workspace = true
+cellophanemc_nbt.workspace = true
+cellophanemc_core.workspace = true
+bit-set.workspace = true
+glam.workspace = true
+cesu8.workspace = true
