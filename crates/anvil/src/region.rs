@@ -1,6 +1,11 @@
+use std::hash::Hash;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use bit_set::BitSet;
+use bitfield_struct::bitfield;
+use byteorder::{BigEndian, ReadBytesExt};
+
+use cellophanemc_nbt::binary::decode::FromModifiedUtf8;
+use cellophanemc_nbt::Compound;
 
 use crate::error::{Error, Result};
 
@@ -11,109 +16,140 @@ pub const CHUNK_HEADER_SIZE: usize = 5;
 #[derive(Clone)]
 pub struct Region<S> {
     stream: S,
-    sectors: BitSet,
+    locations: [Location; 1024],
+    timestamps: [u32; 1024],
+    used_sectors: bitvec::vec::BitVec,
 }
 
-impl<S> Region<S>
-    where
-        S: Read + Seek
+impl<F> Region<F>
+where
+    F: Read + Seek,
 {
-    pub fn from_stream(stream: S) -> Self {
-        let mut sectors = BitSet::with_capacity(1024);
-        sectors.insert(0);
-        sectors.insert(1);
-
+    pub fn from_stream(stream: F) -> Result<Self> {
         let mut stream = stream;
+        let mut header = [0u8; REGION_HEADER_SIZE];
+        stream.read_exact(&mut header)?;
 
-        for i in 0..1024 {
-            let chunk_location = chunk_location(&mut stream, i);
-            if let Some(chunk_location) = chunk_location {
-                for j in 0..chunk_location.sectors {
-                    sectors.insert(chunk_location.offset + j);
-                }
+        let locations = std::array::from_fn(|i| {
+            Location(u32::from_be_bytes(
+                header[i * 4..(i + 1) * 4].try_into().unwrap(),
+            ))
+        });
+        let timestamps = std::array::from_fn(|i| {
+            u32::from_be_bytes(
+                header[SECTOR_SIZE + i * 4..SECTOR_SIZE + (i + 1) * 4]
+                    .try_into()
+                    .unwrap(),
+            )
+        });
+
+        let mut used_sectors = bitvec::vec::BitVec::repeat(true, 2);
+        for location in locations {
+            if location.is_empty() {
+                continue;
             }
+            let (sector_offset, sector_count) = location.offset_and_count();
+            if sector_offset < 2 {
+                continue;
+            }
+            if sector_count == 0 {
+                continue;
+            }
+
+            Self::reserve_sectors(&mut used_sectors, sector_offset, sector_count);
         }
 
-        Self {
+        Ok(Self {
             stream,
-            sectors,
-        }
+            locations,
+            timestamps,
+            used_sectors,
+        })
     }
 
-    fn read_chunk_header(&mut self, chunk_location: ChunkLocation) -> Result<ChunkHeader> {
-        let offset = chunk_location.offset * SECTOR_SIZE;
-        self.stream.seek(SeekFrom::Start(offset as u64))?;
-
-        let mut buf = [0u8; CHUNK_HEADER_SIZE];
-        self.stream.read_exact(&mut buf)?;
-        let chunk_header = ChunkHeader::from_bytes(&buf)?;
-
-        Ok(chunk_header)
-    }
-
-    fn read_raw_chunk(
-        &mut self,
-        x: usize,
-        z: usize,
-        dst: &mut dyn Write,
-    ) -> Result<u64> {
-        let chunk_location = chunk_location(&mut self.stream, chunk_location_offset(x, z));
-        if let Some(chunk_location) = chunk_location {
-            let offset = chunk_location.offset * SECTOR_SIZE + CHUNK_HEADER_SIZE;
-            let chunk_header = self.read_chunk_header(chunk_location)?;
-            self.stream.seek(SeekFrom::Start(offset as u64))?;
-            let mut src = (&mut self.stream).take(chunk_header.size as u64);
-
-            let bytes = match chunk_header.compression_type {
-                CompressionType::Gzip => {
-                    let mut decoder = flate2::read::GzDecoder::new(src);
-                    std::io::copy(&mut decoder, dst)?
-                }
-                CompressionType::Zlib => {
-                    let mut decoder = flate2::read::ZlibDecoder::new(src);
-                    std::io::copy(&mut decoder, dst)?
-                }
-                CompressionType::Uncompressed => {
-                    std::io::copy(&mut src, dst)?
-                }
-            };
-            Ok(bytes)
+    fn reserve_sectors(
+        used_sectors: &mut bitvec::vec::BitVec,
+        sector_offset: u64,
+        sector_count: usize,
+    ) {
+        let start_index = sector_offset as usize;
+        let end_index = sector_offset as usize + sector_count;
+        if used_sectors.len() < end_index {
+            used_sectors.resize(start_index, false);
+            used_sectors.resize(end_index, true);
         } else {
-            Ok(0)
+            used_sectors[start_index..end_index].fill(true);
         }
     }
-}
 
-fn chunk_location<S>(stream: &mut S, offset: u64) -> Option<ChunkLocation>
+    fn read_raw_chunk<S>(&mut self, x: i32, z: i32) -> Result<Option<RawChunk<S>>>
     where
-        S: Read + Seek
-{
-    stream.seek(SeekFrom::Start(offset)).ok()?;
+        S: FromModifiedUtf8 + Hash + Ord,
+    {
+        let chunk_idx = chunk_idx(x, z);
+        let location = self.locations[chunk_idx];
 
-    let mut buf = [0u8; 4];
-    stream.read_exact(&mut buf).ok()?;
+        if location.is_empty() {
+            return Ok(None);
+        }
 
-    let mut offset = 0usize;
-    offset |= (buf[0] as usize) << 16;
-    offset |= (buf[1] as usize) << 8;
-    offset |= buf[2] as usize;
-    let sectors = buf[3] as usize;
+        let (sector_offset, sector_count) = location.offset_and_count();
 
-    (offset != 0 || sectors != 0).then_some(ChunkLocation { offset, sectors })
-}
+        self.stream
+            .seek(SeekFrom::Start(sector_offset * SECTOR_SIZE as u64))?;
 
-const fn chunk_location_offset(chunk_x: usize, chunk_z: usize) -> u64 {
-    (chunk_x & 31) as u64 + (chunk_z & 31) as u64 * 32
+        let exact_chunk_size = self.stream.read_u32::<BigEndian>()? as usize;
+        let compression_type = CompressionType::try_from(self.stream.read_u8()?)?;
+
+        let mut src = (&mut self.stream).take((exact_chunk_size - 1) as u64);
+        let mut nbt_data = Vec::new();
+
+        match compression_type {
+            CompressionType::Gzip => {
+                let mut decoder = flate2::read::GzDecoder::new(src);
+                std::io::copy(&mut decoder, &mut nbt_data)?
+            }
+            CompressionType::Zlib => {
+                let mut decoder = flate2::read::ZlibDecoder::new(src);
+                std::io::copy(&mut decoder, &mut nbt_data)?
+            }
+            CompressionType::Uncompressed => std::io::copy(&mut src, &mut nbt_data)?,
+        };
+
+        let (nbt, _) = cellophanemc_nbt::binary::decode::from_binary(&mut nbt_data.as_slice())?;
+
+        Ok(Some(RawChunk {
+            data: nbt,
+            timestamp: self.timestamps[chunk_idx],
+        }))
+    }
 }
 
 #[derive(Debug)]
-struct ChunkLocation {
-    // The offset, in units of 4 KiB sectors, into the region file where the chunk is stored.
-    // Offset 0 is the start of the file.
-    offset: usize,
+pub struct RawChunk<S = String> {
+    pub data: Compound<S>,
+    pub timestamp: u32,
+}
 
-    // The number of 4 KiB sectors that the chunk occupies in the region file.
-    sectors: usize,
+const fn chunk_idx(chunk_x: i32, chunk_z: i32) -> usize {
+    (chunk_x & 31) as usize + (chunk_z & 31) as usize * 32
+}
+
+#[bitfield(u32)]
+struct Location {
+    count: u8,
+    #[bits(24)]
+    offset: u32,
+}
+
+impl Location {
+    fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    fn offset_and_count(self) -> (u64, usize) {
+        (self.offset() as u64, self.count() as usize)
+    }
 }
 
 #[derive(Debug)]
@@ -157,7 +193,7 @@ impl TryFrom<u8> for CompressionType {
             1 => Ok(CompressionType::Gzip),
             2 => Ok(CompressionType::Zlib),
             3 => Ok(CompressionType::Uncompressed),
-            _ => Err(Error::UnknownCompression(value))
+            _ => Err(Error::UnknownCompression(value)),
         }
     }
 }
@@ -166,16 +202,27 @@ impl TryFrom<u8> for CompressionType {
 mod test {
     use std::fs::File;
 
+    use serde::Deserialize;
+
+    use crate::chunk::Chunk;
     use crate::region::Region;
 
     #[test]
     fn foo() {
         let file = File::open("/Users/andreypfau/IdeaProjects/pfaumc/pfaumc-minigame/run/bedwars_lobby/region/r.0.0.mca").expect("Failed to open region file");
-        let mut region = Region::from_stream(file);
+        let mut region = Region::from_stream(file).unwrap();
         // let mut chunk_data = Vec::new();
         // let read = region.read_chunk(&ChunkPos::new(0, 0), &mut chunk_data).expect("Failed to read chunk");
         // println!("Chunk len: {:?}", chunk_data.len());
         // println!("read len: {:?}", read);
-        region.read_raw_chunk(0, 0, &mut std::io::stdout()).expect("Failed to read chunk");
+        let raw_chunk = region
+            .read_raw_chunk::<String>(0, 0)
+            .expect("Failed to read raw chunk")
+            .unwrap();
+        let data = raw_chunk.data;
+
+        let chunk = Chunk::deserialize(data.clone()).unwrap();
+        println!("chunk: {:#?}", chunk);
+        // aaa(data)
     }
 }

@@ -4,10 +4,13 @@ pub use tag::Tag;
 pub use value::Value;
 
 pub mod error;
-mod arrays;
 
+#[cfg(feature = "binary")]
+pub mod binary;
 pub mod compound;
+mod conv;
 pub mod list;
-pub mod value;
+#[cfg(feature = "serde")]
+pub mod serde;
 pub mod tag;
-pub mod ser;
+pub mod value;

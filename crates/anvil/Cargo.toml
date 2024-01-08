@@ -13,6 +13,13 @@ repository.workspace = true
 [dependencies]
 thiserror.workspace = true
 flate2.workspace = true
-bit-set.workspace = true
-cellophanemc_nbt.workspace = true
+bitvec.workspace = true
+bitfield-struct.workspace = true
+cellophanemc_nbt = { workspace = true, features = ["binary", "serde"] }
 byteorder.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_derive = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+serde.workspace = true

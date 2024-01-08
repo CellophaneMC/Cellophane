@@ -15,6 +15,7 @@ include.workspace = true
 [dependencies]
 cellophanemc_data.workspace = true
 cellophanemc_core.workspace = true
+cellophanemc_ident.workspace = true
 serde = { workspace = true, optional = true, features = ["derive"] }
 env_logger = "0.10.0"
 log = "0.4.20"

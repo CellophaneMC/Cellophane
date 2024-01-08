@@ -9,10 +9,14 @@ categories.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
+[features]
+binary = ["dep:byteorder", "dep:cesu8"]
+
 [dependencies]
-byteorder.workspace = true
-cesu8.workspace = true
-serde.workspace = true
+byteorder = { workspace = true, optional = true }
+cesu8 = { workspace = true, optional = true }
+
 thiserror.workspace = true
 uuid = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
 ryu = "1.0.16"

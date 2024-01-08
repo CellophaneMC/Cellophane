@@ -1,10 +1,8 @@
 use std::borrow::Cow;
 use std::hash::Hash;
 
-use serde::Serialize;
-
-use crate::{Compound, List, Tag};
 use crate::error::Error;
+use crate::{Compound, List, Tag};
 
 #[derive(Debug, Clone)]
 pub enum Value<S = String> {
@@ -213,6 +211,30 @@ impl<'a> From<Cow<'a, str>> for Value<Cow<'a, str>> {
     }
 }
 
+impl<S> From<Vec<i8>> for Value<S> {
+    fn from(v: Vec<i8>) -> Self {
+        Self::ByteArray(v)
+    }
+}
+
+impl<S> From<Vec<u8>> for Value<S> {
+    fn from(v: Vec<u8>) -> Self {
+        unsafe { Self::ByteArray(std::mem::transmute(v)) }
+    }
+}
+
+impl<S> From<Vec<i32>> for Value<S> {
+    fn from(v: Vec<i32>) -> Self {
+        Self::IntArray(v)
+    }
+}
+
+impl<S> From<Vec<i64>> for Value<S> {
+    fn from(v: Vec<i64>) -> Self {
+        Self::LongArray(v)
+    }
+}
+
 #[cfg(feature = "uuid")]
 impl<S> From<uuid::Uuid> for Value<S> {
     fn from(value: uuid::Uuid) -> Self {
@@ -227,10 +249,10 @@ impl<S> From<uuid::Uuid> for Value<S> {
     }
 }
 
-
+#[cfg(feature = "serde")]
 pub fn to_value<T>(value: T) -> Result<Value, Error>
-    where
-        T: Serialize,
+where
+    T: serde::Serialize,
 {
-    value.serialize(Serializer)
+    todo!()
 }

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use cellophanemc_core::block_pos::PackedBlockPos;
 use cellophanemc_core::chunk_pos::{ChunkSection, DynPalette, PaletteContainer};
 use cellophanemc_core::palette::Palette;
-use cellophanemc_nbt::aa::{Value as NbtValue, Value};
+use cellophanemc_nbt::Compound;
 
 use crate::error::{Error, Result};
 use crate::var_int::VarInt;
@@ -89,7 +89,9 @@ impl Decoder for bool {
 
 impl Encoder for bool {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        writer.write_u8(if *self { 1 } else { 0 }).map_err(From::from)
+        writer
+            .write_u8(if *self { 1 } else { 0 })
+            .map_err(From::from)
     }
 }
 
@@ -239,36 +241,38 @@ impl Decoder for PackedBlockPos {
 
 impl Encoder for PackedBlockPos {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        writer.write_u64::<BigEndian>((*self).into()).map_err(Error::from)
+        writer
+            .write_u64::<BigEndian>((*self).into())
+            .map_err(Error::from)
     }
 }
 
-impl Encoder for NbtValue {
+impl Encoder for cellophanemc_nbt::Value {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         writer.write_i8(self.id() as i8).map_err(Error::from)?;
 
-        fn write_raw(nbt: &NbtValue, dst: &mut impl Write) -> io::Result<()> {
+        fn write_raw(nbt: &cellophanemc_nbt::Value, dst: &mut impl Write) -> io::Result<()> {
             match *nbt {
-                Value::Byte(val) => dst.write_i8(val),
-                Value::Short(val) => dst.write_i16::<BigEndian>(val),
-                Value::Int(val) => dst.write_i32::<BigEndian>(val),
-                Value::Long(val) => dst.write_i64::<BigEndian>(val),
-                Value::Float(val) => dst.write_f32::<BigEndian>(val),
-                Value::Double(val) => dst.write_f64::<BigEndian>(val),
-                Value::ByteArray(ref val) => {
+                cellophanemc_nbt::Value::Byte(val) => dst.write_i8(val),
+                cellophanemc_nbt::Value::Short(val) => dst.write_i16::<BigEndian>(val),
+                cellophanemc_nbt::Value::Int(val) => dst.write_i32::<BigEndian>(val),
+                cellophanemc_nbt::Value::Long(val) => dst.write_i64::<BigEndian>(val),
+                cellophanemc_nbt::Value::Float(val) => dst.write_f32::<BigEndian>(val),
+                cellophanemc_nbt::Value::Double(val) => dst.write_f64::<BigEndian>(val),
+                cellophanemc_nbt::Value::ByteArray(ref val) => {
                     dst.write_i32::<BigEndian>(val.len() as i32)?;
                     for &i in val {
                         dst.write_i8(i)?;
                     }
                     Ok(())
                 }
-                Value::String(ref val) => {
+                cellophanemc_nbt::Value::String(ref val) => {
                     let encoded = cesu8::to_java_cesu8(val.as_str());
                     dst.write_i16::<BigEndian>(encoded.len() as i16)?;
                     dst.write_all(&encoded)?;
                     Ok(())
                 }
-                Value::List(ref vals) => {
+                cellophanemc_nbt::Value::List(ref vals) => {
                     if vals.is_empty() {
                         dst.write_u8(0)?; // TAG_End
                         dst.write_i32::<BigEndian>(0)?;
@@ -282,7 +286,7 @@ impl Encoder for NbtValue {
                     }
                     Ok(())
                 }
-                Value::Compound(ref vals) => {
+                cellophanemc_nbt::Value::Compound(ref vals) => {
                     for (name, ref val) in vals.iter() {
                         dst.write_u8(val.id())?;
                         let name = cesu8::to_java_cesu8(name.as_str());
@@ -293,22 +297,18 @@ impl Encoder for NbtValue {
                     dst.write_u8(0)?; // TAG_End
                     Ok(())
                 }
-                Value::IntArray(ref vals) => {
+                cellophanemc_nbt::Value::IntArray(ref vals) => {
                     dst.write_i32::<BigEndian>(vals.len() as i32)?;
                     for &val in vals {
                         dst.write_i32::<BigEndian>(val)?;
                     }
                     Ok(())
                 }
-                Value::LongArray(ref vals) => {
+                cellophanemc_nbt::Value::LongArray(ref vals) => {
                     dst.write_i32::<BigEndian>(vals.len() as i32)?;
                     for &val in vals {
                         dst.write_i64::<BigEndian>(val)?;
                     }
-                    Ok(())
-                }
-                Value::Empty => {
-                    dst.write_u8(0)?;
                     Ok(())
                 }
             }
@@ -318,16 +318,22 @@ impl Encoder for NbtValue {
     }
 }
 
-impl Decoder for NbtValue {
+impl Decoder for cellophanemc_nbt::Value {
     fn read(reader: &mut impl Read) -> Result<Self> {
-        let id = i8::read(reader)?;
-        Ok(Value::Byte(id))
+        todo!()
+    }
+}
+
+impl<S> Decoder for Compound<S> {
+    fn read(reader: &mut impl Read) -> Result<Self> {
+        let (compound, _) = cellophanemc_nbt::binary::decode::from_binary(reader)?;
+        Ok(compound)
     }
 }
 
 impl<T> Decoder for Option<T>
-    where
-        T: Decoder,
+where
+    T: Decoder,
 {
     fn read(reader: &mut impl Read) -> Result<Self> {
         let present = bool::read(reader)?;
@@ -340,8 +346,8 @@ impl<T> Decoder for Option<T>
 }
 
 impl<T> Encoder for Option<T>
-    where
-        T: Encoder,
+where
+    T: Encoder,
 {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         match self {
@@ -359,11 +365,13 @@ impl<T> Encoder for Option<T>
 
 const MAX_LENGTH: usize = 1024 * 1024; // 2^20 elements
 
-pub struct FixedLengthVec<'a, const i: usize, T>(pub Cow<'a, [T]>) where [T]: ToOwned<Owned=Vec<T>>;
+pub struct FixedLengthVec<'a, const i: usize, T>(pub Cow<'a, [T]>)
+where
+    [T]: ToOwned<Owned = Vec<T>>;
 
 impl<'a, const i: usize, T> From<FixedLengthVec<'a, i, T>> for Vec<T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(x: FixedLengthVec<'a, i, T>) -> Self {
         let a = x.0;
@@ -373,8 +381,8 @@ impl<'a, const i: usize, T> From<FixedLengthVec<'a, i, T>> for Vec<T>
 }
 
 impl<'a, const i: usize, T> From<&'a [T]> for FixedLengthVec<'a, i, T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(slice: &'a [T]) -> Self {
         Self(Cow::Borrowed(slice))
@@ -382,8 +390,8 @@ impl<'a, const i: usize, T> From<&'a [T]> for FixedLengthVec<'a, i, T>
 }
 
 impl<'a, const i: usize, T> From<Vec<T>> for FixedLengthVec<'a, i, T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(vec: Vec<T>) -> Self {
         Self(Cow::Owned(vec))
@@ -422,9 +430,9 @@ impl<const i: usize> Into<BitSet> for FixedBitSet<i> {
 pub type Fixed256VecU8<'a> = FixedLengthVec<'a, 256, u8>;
 
 impl<'a, T, const i: usize> Decoder for FixedLengthVec<'a, i, T>
-    where
-        T: Decoder,
-        [T]: ToOwned<Owned=Vec<T>>,
+where
+    T: Decoder,
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn read(reader: &mut impl Read) -> Result<Self> {
         let mut vec = Vec::with_capacity(i);
@@ -436,9 +444,9 @@ impl<'a, T, const i: usize> Decoder for FixedLengthVec<'a, i, T>
 }
 
 impl<'a, T, const i: usize> Encoder for FixedLengthVec<'a, i, T>
-    where
-        T: Encoder,
-        [T]: ToOwned<Owned=Vec<T>>,
+where
+    T: Encoder,
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         for item in self.0.iter() {
@@ -449,20 +457,20 @@ impl<'a, T, const i: usize> Encoder for FixedLengthVec<'a, i, T>
 }
 
 pub struct LengthPrefixedVec<'a, P, T>(pub Cow<'a, [T]>, PhantomData<P>)
-    where
-        [T]: ToOwned<Owned=Vec<T>>;
+where
+    [T]: ToOwned<Owned = Vec<T>>;
 
 impl<'a, P, T> Decoder for LengthPrefixedVec<'a, P, T>
-    where
-        T: Decoder,
-        [T]: ToOwned<Owned=Vec<T>>,
-        P: Decoder + TryInto<usize>,
-        P::Error: std::error::Error + Send + Sync + 'static,
+where
+    T: Decoder,
+    [T]: ToOwned<Owned = Vec<T>>,
+    P: Decoder + TryInto<usize>,
+    P::Error: std::error::Error + Send + Sync + 'static,
 {
     fn read(reader: &mut impl Read) -> Result<Self> {
-        let len = P::read(reader)?.try_into().map_err(|e| Error::Io(
-            io::Error::new(io::ErrorKind::InvalidData, e)
-        ))?;
+        let len = P::read(reader)?
+            .try_into()
+            .map_err(|e| Error::Io(io::Error::new(io::ErrorKind::InvalidData, e)))?;
 
         // if len > MAX_LENGTH {
         // bail!(
@@ -482,16 +490,15 @@ impl<'a, P, T> Decoder for LengthPrefixedVec<'a, P, T>
 }
 
 impl<'a, P, T> Encoder for LengthPrefixedVec<'a, P, T>
-    where
-        T: Encoder,
-        [T]: ToOwned<Owned=Vec<T>>,
-        P: Encoder + TryFrom<usize>,
-        P::Error: std::error::Error + Send + Sync + 'static,
+where
+    T: Encoder,
+    [T]: ToOwned<Owned = Vec<T>>,
+    P: Encoder + TryFrom<usize>,
+    P::Error: std::error::Error + Send + Sync + 'static,
 {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        let len = P::try_from(self.0.len()).map_err(|e| Error::Io(
-            io::Error::new(io::ErrorKind::InvalidData, e)
-        ))?;
+        let len = P::try_from(self.0.len())
+            .map_err(|e| Error::Io(io::Error::new(io::ErrorKind::InvalidData, e)))?;
         len.write(writer)?;
 
         for item in self.0.iter() {
@@ -503,8 +510,8 @@ impl<'a, P, T> Encoder for LengthPrefixedVec<'a, P, T>
 }
 
 impl<'a, P, T> From<LengthPrefixedVec<'a, P, T>> for Vec<T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>,
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(x: LengthPrefixedVec<'a, P, T>) -> Self {
         x.0.into_owned()
@@ -512,8 +519,8 @@ impl<'a, P, T> From<LengthPrefixedVec<'a, P, T>> for Vec<T>
 }
 
 impl<'a, P, T> From<&'a [T]> for LengthPrefixedVec<'a, P, T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>,
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(slice: &'a [T]) -> Self {
         Self(Cow::Borrowed(slice), PhantomData)
@@ -521,8 +528,8 @@ impl<'a, P, T> From<&'a [T]> for LengthPrefixedVec<'a, P, T>
 }
 
 impl<'a, P, T> From<Vec<T>> for LengthPrefixedVec<'a, P, T>
-    where
-        [T]: ToOwned<Owned=Vec<T>>,
+where
+    [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(vec: Vec<T>) -> Self {
         Self(Cow::Owned(vec), PhantomData)

@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
-use std::iter::Map;
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
+
 use crate::entity::EntityCategory;
 use crate::generation::CarvingSteps;
-
 use crate::particle::Particle;
 use crate::sound::Music;
 
@@ -46,21 +46,42 @@ pub struct BiomeEffects {
     water_color: i32,
     water_fog_color: i32,
     sky_color: i32,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     foliage_color: Option<i32>,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     grass_color: Option<i32>,
     #[cfg_attr(feature = "serde", serde(default))]
     grass_color_modifier: GrassColorModifier,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     particle: Option<AmbientParticle>,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     ambient_sound: Option<String>,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     mood_sound: Option<AmbientMoodSound>,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     additions_sound: Option<AmbientAdditionsSound>,
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     music: Option<Music>,
 }
 
@@ -102,13 +123,13 @@ pub struct AmbientAdditionsSound {
 #[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BiomeGeneration {
-    carvers: BTreeMap<CarvingSteps, Carver>,
+    carvers: BTreeMap<CarvingSteps, Carvers>,
     features: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
-pub enum Carver {
+pub enum Carvers {
     Single(String),
     Array(Vec<String>),
 }

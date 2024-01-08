@@ -1,4 +1,4 @@
-use cellophanemc_nbt::aa::Value as Nbt;
+use cellophanemc_nbt::{Compound, Value};
 
 use super::*;
 
@@ -24,7 +24,7 @@ packets! {
     }
 
     RegistryData {
-        data Nbt;
+        data Compound;
     }
 
     RemoveResourcePack {
@@ -36,7 +36,7 @@ packets! {
         url String;
         hash String;
         forced bool;
-        promt_message Option<Nbt>;
+        promt_message Option<Value>;
     }
 
     FeatureFlags {
